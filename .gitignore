@@ -1,0 +1,12 @@
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+
+# Objects and binary
+*.o
+*.obj
+*.out
+bin/
+obj/
