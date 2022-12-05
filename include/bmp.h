@@ -8,30 +8,48 @@ typedef struct {
 } Rect;
 
 /**
- Load given bmp file with specifyed width and height
+ Struct to represent a pixel read from a bmp file;
+ The oreder of the components is reversed because in bmp file components are storrd like 0xBBGGRR
+ B - blue, G - green, R - red
+ */
+typedef struct {
+    unsigned char b, g, r;
+} Pixel;
+
+/**
+ Internal representation of bmp image contents
  
- All pixel values will be written in this array in format 0xAABBGGRR
+ `pixels` is a 2D array (1D with `size = height * width`) with `height` rows and `width` columns
+ Each pixel is 3 bytes wide.
  
- where     
+ - Warning: Do not modify contents of this struct directly, only use within functions in this header
  
- AA - 8 bit space (currently unused),    
+ Should only be initialized via `loadBmp` function
+ After no longer needed, should be destroyed by `destoryImage` function
+ */
+typedef struct {
+    uint32_t width, height;
+    Pixel *pixels;
+} Image;
+
+/**
+ Load given bmp file. Initializes an `Image` struct with its contents
  
- BB - 8 bit space for blue component,   
+ In case of an error `image` argument will still be uninitialized, you should not pass it to the `destoryImage` function
  
- GG - 8 bit space for green component,   
- 
- RR - 8 bit space for red component    
- 
- - Parameter pixels: 2D array with predefined size where values of all read pixels will be stored
+ - Parameter image: pointer to an uninitialized `Image` struct
+ - Parameter filename: name of the file to read from
  
  - Returns: 0 if file was successfully loaded, 1 if the error occured
  */
-int loadBmp(int width, int height, uint32_t pixels[height][width], const char *filename);
+int loadBmp(Image *image, const char *filename);
 
-void crop(int width, int height, uint32_t pixels[height][width], Rect rect);
+void crop(Image *image, Rect *rect);
 
-void rotate(int width, int height, uint32_t pixels[height][width]);
+void rotate(Image *image);
 
-int saveBmp(int width, int height, uint32_t pixels[height][width], const char *filename);
+int saveBmp(Image *image, const char *filename);
+
+void destoryImage(Image *image);
 
 #endif /* bmp_h */
