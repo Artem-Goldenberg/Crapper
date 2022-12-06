@@ -60,13 +60,13 @@ int main(int argc, const char * argv[]) {
     Image image;
     int error = loadBmp(&image, filenames.input);
     if (error != 0) {
-        fprintf(stderr, "%s: error occured: %s\n", filenames.input, strerror(error));
+        fprintf(stderr, "%s: error while loading the file: %s\n", filenames.input, strerror(error));
         return 1;
     }
     
     if (rect.x + rect.w > image.width || rect.y + rect.h > image.height) {
         fprintf(stderr,
-                "Specified rectangle with origin: (%d, %d) and size: (%d %d) "
+                "Specified rectangle with origin: (%d, %d) and size: (%d, %d) "
                 "is out of bounds for the image of size: (%d, %d)\n",
                 rect.x, rect.y,
                 rect.w, rect.h,
@@ -80,17 +80,16 @@ int main(int argc, const char * argv[]) {
     error = rotate(&image);
     if (error != 0) {
         fprintf(stderr, "%s: error while processing the image: %s\n", filenames.input, strerror(error));
+        destoryImage(&image);
         return 1;
     }
     
-    for (int y = 0; y < image.height; ++y) {
-        for (int x = 0; x < image.width; ++x) {
-            Pixel p = image.pixels[y * image.width + x];
-            printf("Got red: %x, green: %x, blue: %x\n", p.r, p.g, p.b);
-        }
+    error = saveBmp(&image, filenames.output);
+    if (error != 0) {
+        fprintf(stderr, "%s: error while saving the file: %s\n", filenames.output, strerror(error));
+        destoryImage(&image);
+        return 1;
     }
-    
-//    saveBmp(&image, filenames.output);
     
     destoryImage(&image);
     return 0;

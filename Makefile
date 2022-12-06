@@ -9,6 +9,7 @@ SRC = src
 OBJ = obj
 BIN = bin
 DATA = samples
+TMP = $(DATA)/generated
 
 # Target name
 TARGET = $(BIN)/hw_01
@@ -29,6 +30,9 @@ $(OBJ):
 # Create directory for an executable
 $(BIN):
 	mkdir $@
+# Create directory for generated bmp files
+$(TMP):
+	mkdir $@
 	
 # Compile all source files with $(HDR) directory included in search path
 $(OBJ)/%.o: $(SRC)/%.c $(HDR)/%.h $(OBJ)
@@ -42,12 +46,12 @@ $(TARGET): $(OBJS) $(BIN)
 	$(CC) $(FLAGS) $(OBJS) -o $@
 	
 # A simple test
-test: $(TARGET)
-	$< crop-rotate $(DATA)/small-one.bmp $(DATA)/generated/output.bmp 0 0 2 2
+test: $(TARGET) $(TMP)
+	$< crop-rotate $(DATA)/small-one.bmp $(TMP)/output.bmp 0 0 2 2
 
 # Remove $(BIN) and $(OBJ) directories
 clean:
-	rm -fr $(BIN) $(OBJ) $(DATA)/generated
+	rm -fr $(BIN) $(OBJ) $(TMP)
 
 # Do not print commands by default
 ifndef VERBOSE

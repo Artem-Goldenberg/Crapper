@@ -9,12 +9,13 @@
 /// specified bmp file format constants
 static const size_t pixelsPositionOffset = 0x0A;
 static const size_t imageSizeOffset = 0x12;
+static const size_t imageRawSizeOffset = 0x22;
 static const size_t bitsPerPixelOffset = 0x1C;
 
 /**
- Internal function, accepts an open file descriptor and process it
+ Internal function to load image, accepts a file descriptor and process it
  
- - Returns: 0 on success, -1 value on error
+ - Returns: 0 on success, error code on error
  */
 static int load(Image *image, FILE *file) {
     if (!file) return errno;
@@ -70,10 +71,10 @@ static int load(Image *image, FILE *file) {
     
     uint32_t lastRowPosition = pixelsPosition + (image->height - 1) * realWidth;
     
-    for (uint32_t i = 0; i < image->height; ++i) {
-        fseek(file, lastRowPosition - i * realWidth, SEEK_SET);
+    for (uint32_t y = 0; y < image->height; ++y) {
+        fseek(file, lastRowPosition - y * realWidth, SEEK_SET);
         if (ferror(file)) return errno;
-        fread(image->pixels + i * image->width, sizeof(Pixel), image->width, file);
+        fread(image->pixels + y * image->width, sizeof(Pixel), image->width, file);
         if (ferror(file)) return errno;
     }
     
@@ -145,6 +146,56 @@ int rotate(Image *image) {
     image->height = temp;
     
     return 0;
+}
+
+
+/**
+ Internal function to save image, accepts a file descriptor and process it
+ 
+ - Returns: 0 on success, error code on error
+ */
+static int save(Image *image, FILE *file) {
+    if (!file) return errno;
+    
+    // write new image's width and height to the header
+    memcpy(image->rawHeader + imageSizeOffset, image, 4 * 2);
+    
+    uint32_t rowPadding = 4 - image->width * sizeof(Pixel) % 4;
+    uint32_t rawSize = image->height * (image->width * sizeof(Pixel) + rowPadding);
+    
+    // write new image's size including padding to the header
+    memcpy(image->rawHeader + imageRawSizeOffset, &rawSize, 4);
+    
+    // read the offset to pixels storage from the header again
+    // it also is the size of the header, pretty handy ha
+    uint32_t pixelsPosition = *(uint32_t*)(image->rawHeader + pixelsPositionOffset);
+    
+    // write header to the file
+    fwrite(image->rawHeader, pixelsPosition, 1, file);
+    if (ferror(file)) return errno;
+    
+    // buffer to provide to `fwrite` function for padding,
+    // padding length can't be greater than 3 but store 4 bytes just for safety
+    char nullBytes[4] = {0};
+    
+    for (int y = image->height - 1; y >= 0; --y) {
+        fwrite(image->pixels + y * image->width, sizeof(Pixel), image->width, file);
+        if (ferror(file)) return errno;
+        fwrite(nullBytes, 1, rowPadding, file);
+        if (ferror(file)) return errno;
+    }
+    
+    return 0;
+}
+
+
+int saveBmp(Image *image, const char *filename) {
+    FILE *file = fopen(filename, "wb");
+    
+    int error = save(image, file);
+    
+    if (file) fclose(file);
+    return error;
 }
 
 

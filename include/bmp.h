@@ -41,7 +41,7 @@ typedef struct {
 typedef struct {
     uint32_t width, height;
     Pixel *pixels;
-    void *rawHeader;
+    char *rawHeader;
 } Image;
 
 
