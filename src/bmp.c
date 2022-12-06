@@ -42,12 +42,13 @@ static int load(Image *image, FILE *file) {
     fread(&bitCount, 2, 1, file);
     if (ferror(file)) return errno;
     
+    // read the pixels
+    // sizeof(Pixel) == 3
+    image->pixels = calloc(image->width * image->height, sizeof(Pixel));
+    if (!image->pixels) return errno;
+    
     // bmp file format: https://en.wikipedia.org/wiki/BMP_file_format
     uint32_t realWidth = ceil(bitCount * image->width / 32.0) * 4;
-    
-    // read the pixels
-    fseek(file, pixelsPosition, SEEK_SET);
-    if (ferror(file)) return errno;
     
     // Pixels layout
     //
@@ -69,10 +70,6 @@ static int load(Image *image, FILE *file) {
     
     uint32_t lastRowPosition = pixelsPosition + (image->height - 1) * realWidth;
     
-    // sizeof(Pixel) == 3
-    image->pixels = calloc(image->width * image->height, sizeof(Pixel));
-    if (!image->pixels) return errno;
-    
     for (uint32_t i = 0; i < image->height; ++i) {
         fseek(file, lastRowPosition - i * realWidth, SEEK_SET);
         if (ferror(file)) return errno;
@@ -80,8 +77,18 @@ static int load(Image *image, FILE *file) {
         if (ferror(file)) return errno;
     }
     
+    // preserve the initial file's header to save bmp file with the same configurations
+    image->rawHeader = malloc(pixelsPosition);
+    if (!image->rawHeader) return errno;
+    
+    fseek(file, 0, SEEK_SET);
+    if (ferror(file)) return errno;
+    fread(image->rawHeader, pixelsPosition, 1, file);
+    if (ferror(file)) return errno;
+    
     return 0;
 }
+
 
 int loadBmp(Image *image, const char *filename) {
     FILE *file = fopen(filename, "rb");
@@ -92,7 +99,58 @@ int loadBmp(Image *image, const char *filename) {
     return error;
 }
 
+
+void crop(Image *image, Rect *rect) {
+    // Move pixels row by row by their offset to the (0, 0) position
+    
+    int rowSize = rect->w * sizeof(Pixel); // new row size in bytes
+    for (int y = rect->y; y < rect->h; ++y) {
+        int rowOffset = y * image->width + rect->x; // start of the row in old coordinates
+        int verticalOffset = (y - rect->y) * rect->w; // start of the row in new coordinates
+        memmove(image->pixels + verticalOffset, image->pixels + rowOffset, rowSize);
+    }
+    
+    image->width = rect->w;
+    image->height = rect->h;
+}
+
+
+int rotate(Image *image) {
+    // Rotated image will take exactly the same space as the original one
+    Pixel *buffer = calloc(image->width * image->height, sizeof(Pixel));
+    if (!buffer) return errno;
+    
+    // iterate over all pixels, map indices to the new location and copy elements
+    for (int i = 0; i < image->width * image->height; ++i) {
+        // i = w * y + x
+        int oldX = i % image->width;
+        int oldY = i / image->width;
+        // for 90˚ rotate
+        // newX = h - 1 - y
+        // newY = x
+        int newX = image->height - 1 - oldY;
+        int newY = oldX;
+        // rotata is similare to transposition, so
+        // index in new array = h * newY + newX
+        int j = image->height * newY + newX;
+        
+        buffer[j] = image->pixels[i];
+    }
+    
+    free(image->pixels);
+    image->pixels = buffer;
+
+    uint32_t temp = image->width;
+    image->width = image->height;
+    image->height = temp;
+    
+    return 0;
+}
+
+
 void destoryImage(Image *image) {
     if (image->pixels) free(image->pixels);
+    if (image->rawHeader) free(image->rawHeader);
     image->pixels = NULL;
+    image->rawHeader = NULL;
 }

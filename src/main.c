@@ -29,7 +29,7 @@ void printUsage(void) {
 int extractArgs(const char * argv[], Rect* rect, IOFiles* files) {
     if (strcmp(argv[1], "crop-rotate") != 0) BADARGS;
     
-    // just points to the same location, so no need for free in the end
+    // just points to the same location, no need for free in the end
     files->input = argv[2];
     files->output = argv[3];
     
@@ -41,6 +41,10 @@ int extractArgs(const char * argv[], Rect* rect, IOFiles* files) {
     return 0;
 }
 
+/// Entry point of the programm
+/// - Parameters:
+///   - argc: Number of arguments being passed from the command line
+///   - argv: Array of null terminated char buffers representing arguments
 int main(int argc, const char * argv[]) {
     if (argc != NARGS) BADARGS;
     
@@ -54,7 +58,6 @@ int main(int argc, const char * argv[]) {
     }
     
     Image image;
-    image.pixels = NULL;
     int error = loadBmp(&image, filenames.input);
     if (error != 0) {
         fprintf(stderr, "%s: error occured: %s\n", filenames.input, strerror(error));
@@ -72,6 +75,14 @@ int main(int argc, const char * argv[]) {
         return 1;
     }
     
+    crop(&image, &rect);
+    
+    error = rotate(&image);
+    if (error != 0) {
+        fprintf(stderr, "%s: error while processing the image: %s\n", filenames.input, strerror(error));
+        return 1;
+    }
+    
     for (int y = 0; y < image.height; ++y) {
         for (int x = 0; x < image.width; ++x) {
             Pixel p = image.pixels[y * image.width + x];
@@ -79,8 +90,6 @@ int main(int argc, const char * argv[]) {
         }
     }
     
-//    crop(&image, &rect);
-//    rotate(&image);
 //    saveBmp(&image, filenames.output);
     
     destoryImage(&image);

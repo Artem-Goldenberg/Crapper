@@ -8,6 +8,7 @@ HDR = include
 SRC = src
 OBJ = obj
 BIN = bin
+DATA = samples
 
 # Target name
 TARGET = $(BIN)/hw_01
@@ -39,10 +40,14 @@ $(OBJ)/%.o: $(SRC)/%.c $(OBJ)
 # With all the object files in place, compile the final target
 $(TARGET): $(OBJS) $(BIN)
 	$(CC) $(FLAGS) $(OBJS) -o $@
+	
+# A simple test
+test: $(TARGET)
+	$< crop-rotate $(DATA)/small-one.bmp $(DATA)/generated/output.bmp 0 0 2 2
 
 # Remove $(BIN) and $(OBJ) directories
 clean:
-	rm -fr $(BIN) $(OBJ)
+	rm -fr $(BIN) $(OBJ) $(DATA)/generated
 
 # Do not print commands by default
 ifndef VERBOSE
