@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "bmp.h"
+#include "stego.h"
 
 #define NARGS 8
 #define BADARGS do { printUsage(); return 1; } while(0)
@@ -90,6 +91,8 @@ int main(int argc, const char * argv[]) {
         destoryImage(&image);
         return 1;
     }
+    
+    encode(&image, "samples/key.txt", "samples/message.txt");
     
     destoryImage(&image);
     return 0;
