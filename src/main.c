@@ -43,7 +43,7 @@ void printUsage(void) {
  - Returns: `TRANSFORM`, `INSERT` or `EXTRACT` mode in case arguments were properly parsed. `FAILED` mode if error occured.
  */
 Mode extractArgs(int argc, const char * argv[], Rect* rect, IOFiles* files) {
-    if (argc < 1) BADARGS;
+    if (argc < 2) BADARGS;
     
     Mode mode;
     
@@ -155,7 +155,7 @@ int transformModeHandler(Image *image, Rect *rect, IOFiles *filenames) {
     crop(image, rect);
     
     int error = rotate(image);
-    if (rotate(image) != 0) {
+    if (error != 0) {
         fprintf(stderr, "%s: error while processing the image: %s\n", filenames->input, strerror(error));
         return 1;
     }

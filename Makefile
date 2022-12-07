@@ -46,10 +46,32 @@ $(TARGET): $(OBJS) $(BIN)
 	$(CC) $(FLAGS) $(OBJS) -o $@
 	
 # A simple test
-test: $(TARGET) $(TMP)
-	$< crop-rotate $(DATA)/small-one.bmp $(TMP)/output.bmp 0 0 2 2
+transform-small: $(TARGET) $(TMP) $(DATA)/small-one.bmp
+	$< crop-rotate $(DATA)/small-one.bmp $(TMP)/tranform-small-output.bmp 0 0 2 2
+# More comprehensive test
+transform-big: $(TARGET) $(TMP) $(DATA)/lena_512.bmp
+	$< crop-rotate $(DATA)/lena_512.bmp $(TMP)/tranform-big-output.bmp 35 95 371 351
+	
+# Helper targets
+$(TMP)/insert-small-output.bmp: $(TARGET) $(TMP) $(DATA)/small-one.bmp $(DATA)/key-small.txt $(DATA)/message-small.txt
+	$< insert $(DATA)/small-one.bmp $(TMP)/insert-small-output.bmp $(DATA)/key-small.txt $(DATA)/message-small.txt
+	
+$(TMP)/insert-big-output.bmp: $(TARGET) $(TMP) $(DATA)/lena_512.bmp $(DATA)/key-big.txt $(DATA)/message-big.txt
+	$< insert $(DATA)/lena_512.bmp $(TMP)/insert-big-output.bmp $(DATA)/key-big.txt $(DATA)/message-big.txt
+	
+# Encoding small test
+insert-small: $(TMP)/insert-small-output.bmp
+# Encoding big test
+insert-big: $(TMP)/insert-big-output.bmp
+	
+# Decoding small test
+extract-small: $(TARGET) $(TMP)/insert-small-output.bmp
+	$< extract $(TMP)/insert-small-output.bmp $(DATA)/key-small.txt $(TMP)/extract-small-output.txt
+# Decoding big test
+extract-big: $(TARGET) $(TMP)/insert-big-output.bmp
+	$< extract $(TMP)/insert-big-output.bmp $(DATA)/key-big.txt $(TMP)/extract-big-output.txt
 
-# Remove $(BIN) and $(OBJ) directories
+# Remove $(BIN), $(OBJ) and $(TMP) directories
 clean:
 	rm -fr $(BIN) $(OBJ) $(TMP)
 

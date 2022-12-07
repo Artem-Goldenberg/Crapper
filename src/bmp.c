@@ -104,10 +104,10 @@ int loadBmp(Image *image, const char *filename) {
 void crop(Image *image, Rect *rect) {
     // Move pixels row by row by their offset to the (0, 0) position
     
-    int rowSize = rect->w * sizeof(Pixel); // new row size in bytes
-    for (int y = rect->y; y < rect->h; ++y) {
-        int rowOffset = y * image->width + rect->x; // start of the row in old coordinates
-        int verticalOffset = (y - rect->y) * rect->w; // start of the row in new coordinates
+    int rowSize = rect->w * sizeof(Pixel);
+    for (int y = 0; y < rect->h; ++y) { // new row size in bytes
+        int rowOffset = (y + rect->y) * image->width + rect->x; // start of the row in old coordinates
+        int verticalOffset = y * rect->w; // start of the row in new coordinates
         memmove(image->pixels + verticalOffset, image->pixels + rowOffset, rowSize);
     }
     
@@ -160,8 +160,9 @@ static int save(const Image *image, FILE *file) {
     // write new image's width and height to the header
     memcpy(image->rawHeader + imageSizeOffset, image, 4 * 2);
     
-    uint32_t rowPadding = 4 - image->width * sizeof(Pixel) % 4;
+    uint32_t rowPadding = (4 - image->width * sizeof(Pixel) % 4) % 4;
     uint32_t rawSize = image->height * (image->width * sizeof(Pixel) + rowPadding);
+    
     
     // write new image's size including padding to the header
     memcpy(image->rawHeader + imageRawSizeOffset, &rawSize, 4);
