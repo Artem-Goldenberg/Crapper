@@ -154,7 +154,7 @@ int rotate(Image *image) {
  
  - Returns: 0 on success, error code on error
  */
-static int save(Image *image, FILE *file) {
+static int save(const Image *image, FILE *file) {
     if (!file) return errno;
     
     // write new image's width and height to the header
@@ -189,7 +189,7 @@ static int save(Image *image, FILE *file) {
 }
 
 
-int saveBmp(Image *image, const char *filename) {
+int saveBmp(const Image *image, const char *filename) {
     FILE *file = fopen(filename, "wb");
     
     int error = save(image, file);

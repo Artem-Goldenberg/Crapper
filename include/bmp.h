@@ -95,7 +95,7 @@ int rotate(Image *image);
  
  - Returns: 0 on success, error code on failure
  */
-int saveBmp(Image *image, const char *filename);
+int saveBmp(const Image *image, const char *filename);
 
 
 /**

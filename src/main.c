@@ -4,59 +4,109 @@
 #include "bmp.h"
 #include "stego.h"
 
-#define NARGS 8
-#define BADARGS do { printUsage(); return 1; } while(0)
+#define BADARGS do { printUsage(); return FAILED; } while(0);
+
+/// This program can run in 3 different mods depending on the command line arguments
+/// `FAILED` mode is used for error handling
+typedef enum { TRANSFORM, INSERT, EXTRACT, FAILED } Mode;
 
 typedef struct {
     const char* input;
     const char* output;
+    const char* key;
+    const char* message;
 } IOFiles;
+
+/// Number of arguments in each mode
+static const int transformModeArgsCount = 8;
+static const int insertModeArgsCount = 6;
+static const int extractModeArgsCount = 5;
 
 void printUsage(void) {
     puts("Usage: bin/hw_01 crop-rotate ‹in-bmp› ‹out-bmp› ‹x› ‹y› ‹w› ‹h›");
+    puts("Or     bin/hw_01 insert ‹in-bmp› ‹out-bmp› ‹key-txt› ‹msg-txt›");
+    puts("Or     bin/hw_01 extract ‹in-bmp› ‹key-txt› ‹msg-txt›");
 }
 
 /**
- Extracts arguments for the dimensions of `Rect` to crop and filenames to read from and write to.
+ Extracts arguments and determines the mode in which programm will be running.
  
- `rect` and `files` will have valid information only if function returns 0, otherwise the contents of this struct is undefined
+ `rect` and `files` will have valid information only if function returns 0, otherwise the contents of this structs is undefined.
+ Valied content in these structs depends on the mode returned. `rect` struct will be filled only in `TRANSFORM` mode. `IOFiles` struct
+ will be containing different valid strings depending on the mode as well.
  
- - Parameter argv: Array of string arguments, its size is assumed to be `NARGS`
+ - Parameter argc: Number of the command line arguments
+ - Parameter argv: Array of string arguments
  - Parameter rect: Pointer to a `Rect` struct, which will be initialized by this function
  - Parameter files: Pointer to a `IOFiles` struct, initializes by this function as well
  
- - Returns: 0 if there was no error parsing args, 1 otherwise
+ - Returns: `TRANSFORM`, `INSERT` or `EXTRACT` mode in case arguments were properly parsed. `FAILED` mode if error occured.
  */
-int extractArgs(const char * argv[], Rect* rect, IOFiles* files) {
-    if (strcmp(argv[1], "crop-rotate") != 0) BADARGS;
+Mode extractArgs(int argc, const char * argv[], Rect* rect, IOFiles* files) {
+    if (argc < 1) BADARGS;
     
-    // just points to the same location, no need for free in the end
-    files->input = argv[2];
-    files->output = argv[3];
+    Mode mode;
     
-    rect->x = atoi(argv[4]);
-    rect->y = atoi(argv[5]);
-    rect->w = atoi(argv[6]);
-    rect->h = atoi(argv[7]);
+    if (strcmp(argv[1], "crop-rotate") == 0) {
+        mode = TRANSFORM;
+        
+        if (argc != transformModeArgsCount) BADARGS;
+        
+        // just points to the same location, no need for free in the end
+        files->input = argv[2];
+        files->output = argv[3];
+        
+        rect->x = atoi(argv[4]);
+        rect->y = atoi(argv[5]);
+        rect->w = atoi(argv[6]);
+        rect->h = atoi(argv[7]);
+    }
+    else if (strcmp(argv[1], "insert") == 0) {
+        mode = INSERT;
+        
+        if (argc != insertModeArgsCount) BADARGS;
+        
+        files->input = argv[2];
+        files->output = argv[3];
+        files->key = argv[4];
+        files->message = argv[5];
+    }
+    else if (strcmp(argv[1], "extract") == 0) {
+        mode = EXTRACT;
+        
+        if (argc != extractModeArgsCount) BADARGS;
+        
+        files->input = argv[2];
+        files->key = argv[3];
+        files->message = argv[4];
+    }
+    else BADARGS;
     
-    return 0;
+    return mode;
 }
+
+// Functions to run for each different mode
+// They all return 0 if no error occured, 1 otherwise
+
+/// Crops `bmp` file, rotates it and saves, handles errors as well
+int transformModeHandler(Image *image, Rect *rect, IOFiles *filesnames);
+
+/// Encodes specified message into the `image` and saves resulting `bmp` file
+int insertModeHandler(Image *image, IOFiles *filesnames);
+
+/// Decodes message from the `image` according to the provided key file.
+int extractModeHandler(Image *image, IOFiles *filesnames);
+
 
 /// Entry point of the programm
 /// - Parameters:
 ///   - argc: Number of arguments being passed from the command line
 ///   - argv: Array of null terminated char buffers representing arguments
 int main(int argc, const char * argv[]) {
-    if (argc != NARGS) BADARGS;
-    
     Rect rect;
     IOFiles filenames;
-    if (extractArgs(argv, &rect, &filenames) != 0) return 1;
-    
-    if (rect.x < 0 || rect.y < 0 || rect.w < 0 || rect.h < 0) {
-        fputs("Rectangle dimensions should be non-negative integers", stderr);
-        return 1;
-    }
+    Mode mode = extractArgs(argc, argv, &rect, &filenames);
+    if (mode == FAILED) return 1;
     
     Image image;
     int error = loadBmp(&image, filenames.input);
@@ -65,35 +115,86 @@ int main(int argc, const char * argv[]) {
         return 1;
     }
     
-    if (rect.x + rect.w > image.width || rect.y + rect.h > image.height) {
+    switch (mode) {
+        case TRANSFORM:
+            error = transformModeHandler(&image, &rect, &filenames);
+            break;
+        case INSERT:
+            error = insertModeHandler(&image, &filenames);
+            break;
+        case EXTRACT:
+            error = extractModeHandler(&image, &filenames);
+            break;
+        case FAILED:
+            fputs("Unknows error", stderr);
+            destoryImage(&image);
+            return 1;
+    }
+    
+    destoryImage(&image);
+    return error;
+}
+
+
+int transformModeHandler(Image *image, Rect *rect, IOFiles *filenames) {
+    if (rect->x < 0 || rect->y < 0 || rect->w < 0 || rect->h < 0) {
+        fputs("Rectangle dimensions should be non-negative integers", stderr);
+        return 1;
+    }
+    
+    if (rect->x + rect->w > image->width || rect->y + rect->h > image->height) {
         fprintf(stderr,
                 "Specified rectangle with origin: (%d, %d) and size: (%d, %d) "
                 "is out of bounds for the image of size: (%d, %d)\n",
-                rect.x, rect.y,
-                rect.w, rect.h,
-                image.width, image.height);
-        destoryImage(&image);
+                rect->x, rect->y,
+                rect->w, rect->h,
+                image->width, image->height);
         return 1;
     }
     
-    crop(&image, &rect);
+    crop(image, rect);
     
-    error = rotate(&image);
+    int error = rotate(image);
+    if (rotate(image) != 0) {
+        fprintf(stderr, "%s: error while processing the image: %s\n", filenames->input, strerror(error));
+        return 1;
+    }
+    
+    error = saveBmp(image, filenames->output);
     if (error != 0) {
-        fprintf(stderr, "%s: error while processing the image: %s\n", filenames.input, strerror(error));
-        destoryImage(&image);
+        fprintf(stderr, "%s: error while saving the file: %s\n", filenames->output, strerror(error));
         return 1;
     }
     
-    error = saveBmp(&image, filenames.output);
+    return 0;
+}
+
+
+int insertModeHandler(Image *image, IOFiles *filenames) {
+    int error = encode(image, filenames->key, filenames->message);
     if (error != 0) {
-        fprintf(stderr, "%s: error while saving the file: %s\n", filenames.output, strerror(error));
-        destoryImage(&image);
+        fprintf(stderr, "%s, %s, %s: error while processing files: %s\n",
+                filenames->input, filenames->key, filenames->message, strerror(error));
         return 1;
     }
     
-    encode(&image, "samples/key.txt", "samples/message.txt");
+    error = saveBmp(image, filenames->output);
+    if (error != 0) {
+        fprintf(stderr, "%s: error while saving the file: %s\n", filenames->output, strerror(error));
+        return 1;
+    }
     
-    destoryImage(&image);
+    return 0;
+}
+
+
+int extractModeHandler(Image *image, IOFiles *filenames) {
+    int error = decode(image, filenames->key, filenames->message);
+    if (error != 0) {
+        fprintf(stderr, "%s, %s, %s: error while processing files: %s\n",
+                filenames->input, filenames->key, filenames->message, strerror(error));
+        return 1;
+    }
+    
     return 0;
 }
